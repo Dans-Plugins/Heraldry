@@ -1,0 +1,6 @@
+name: Heraldry
+version: '${version}'
+main: com.dansplugins.heraldry.Heraldry
+api-version: '1.16'
+authors: ["Daniel McCoy Stephenson"]
+description: Coats of arms for players and factions, rendered onto maps
