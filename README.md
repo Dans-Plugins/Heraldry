@@ -27,7 +27,7 @@ Not yet released. Once there is a release, installation will follow the usual DP
 
 ### Building from source
 
-Building requires JDK 21 (the bytecode targets Java 17 so the jar loads on every version in `minecraft-versions.json`):
+Builds run on JDK 21, as CI does. The bytecode targets Java 17 so the jar loads on every version in `minecraft-versions.json`.
 
 ```bash
 ./gradlew clean build
