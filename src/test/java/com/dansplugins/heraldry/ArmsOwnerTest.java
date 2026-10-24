@@ -40,6 +40,11 @@ class ArmsOwnerTest {
     }
 
     @Test
+    void toStringNamesTheTypeAndId() {
+        assertEquals("FACTION:house_of_york-1", ArmsOwner.faction("house_of_york-1").toString());
+    }
+
+    @Test
     void idsThatCouldEscapeTheStoreAreRejected() {
         assertThrows(IllegalArgumentException.class, () -> ArmsOwner.faction("../player/x"));
         assertThrows(IllegalArgumentException.class, () -> ArmsOwner.faction("a/b"));
