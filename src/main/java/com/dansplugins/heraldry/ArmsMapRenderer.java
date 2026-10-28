@@ -5,18 +5,24 @@ import org.bukkit.map.MapCanvas;
 import org.bukkit.map.MapRenderer;
 import org.bukkit.map.MapView;
 
+import java.util.Collections;
+import java.util.Set;
+import java.util.WeakHashMap;
+
 import static com.dansplugins.heraldry.MapRasteriser.MAP_SIZE;
 
 /**
  * Draws a rasterised coat of arms onto a map.
  *
  * <p>The renderer is not contextual, so every player sees the same canvas. The server keeps that
- * canvas between renders, so the arms are drawn once rather than on every tick.
+ * canvas between renders, so the arms are drawn once per map view rather than on every tick.
  */
 public final class ArmsMapRenderer extends MapRenderer {
 
     private final byte[] pixels;
-    private boolean drawn;
+
+    /** Views already drawn on; one renderer may serve every map issued with the same arms. */
+    private final Set<MapView> drawnViews = Collections.newSetFromMap(new WeakHashMap<>());
 
     /**
      * @param pixels {@code MAP_SIZE * MAP_SIZE} palette indices in row-major order, as returned by
@@ -34,7 +40,7 @@ public final class ArmsMapRenderer extends MapRenderer {
     @Override
     @SuppressWarnings("deprecation")
     public void render(MapView view, MapCanvas canvas, Player player) {
-        if (drawn) {
+        if (!drawnViews.add(view)) {
             return;
         }
         for (int y = 0; y < MAP_SIZE; y++) {
@@ -42,6 +48,5 @@ public final class ArmsMapRenderer extends MapRenderer {
                 canvas.setPixel(x, y, pixels[y * MAP_SIZE + x]);
             }
         }
-        drawn = true;
     }
 }

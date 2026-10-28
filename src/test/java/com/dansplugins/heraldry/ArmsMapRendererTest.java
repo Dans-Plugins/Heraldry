@@ -1,6 +1,7 @@
 package com.dansplugins.heraldry;
 
 import org.bukkit.map.MapCanvas;
+import org.bukkit.map.MapView;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
@@ -13,12 +14,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ArmsMapRendererTest {
 
+    private static final MapView VIEW = view();
+
     @Test
     void everyPixelIsDrawnAtItsPosition() {
         byte[] pixels = distinctPixels();
         RecordingCanvas canvas = new RecordingCanvas();
 
-        new ArmsMapRenderer(pixels).render(null, canvas.proxy(), null);
+        new ArmsMapRenderer(pixels).render(VIEW, canvas.proxy(), null);
 
         assertArrayEquals(pixels, canvas.pixels);
         assertEquals(MAP_SIZE * MAP_SIZE, canvas.writes);
@@ -29,10 +32,24 @@ class ArmsMapRendererTest {
         RecordingCanvas canvas = new RecordingCanvas();
         ArmsMapRenderer renderer = new ArmsMapRenderer(distinctPixels());
 
-        renderer.render(null, canvas.proxy(), null);
-        renderer.render(null, canvas.proxy(), null);
+        renderer.render(VIEW, canvas.proxy(), null);
+        renderer.render(VIEW, canvas.proxy(), null);
 
         assertEquals(MAP_SIZE * MAP_SIZE, canvas.writes);
+    }
+
+    @Test
+    void everyViewTheRendererIsAddedToIsDrawn() {
+        byte[] pixels = distinctPixels();
+        ArmsMapRenderer renderer = new ArmsMapRenderer(pixels);
+        RecordingCanvas first = new RecordingCanvas();
+        RecordingCanvas second = new RecordingCanvas();
+
+        renderer.render(view(), first.proxy(), null);
+        renderer.render(view(), second.proxy(), null);
+
+        assertArrayEquals(pixels, first.pixels);
+        assertArrayEquals(pixels, second.pixels);
     }
 
     @Test
@@ -43,7 +60,7 @@ class ArmsMapRendererTest {
         pixels[0] = (byte) (pixels[0] + 1);
         RecordingCanvas canvas = new RecordingCanvas();
 
-        renderer.render(null, canvas.proxy(), null);
+        renderer.render(VIEW, canvas.proxy(), null);
 
         assertArrayEquals(expected, canvas.pixels);
     }
@@ -68,6 +85,21 @@ class ArmsMapRendererTest {
             }
         }
         return pixels;
+    }
+
+    /** A distinct {@link MapView} that supports only identity equality, as the server's views do. */
+    private static MapView view() {
+        return (MapView) Proxy.newProxyInstance(MapView.class.getClassLoader(), new Class<?>[]{MapView.class},
+                (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "hashCode":
+                            return System.identityHashCode(proxy);
+                        case "equals":
+                            return proxy == args[0];
+                        default:
+                            throw new UnsupportedOperationException(method.getName());
+                    }
+                });
     }
 
     /** A {@link MapCanvas} that records {@code setPixel} calls; no other method is expected. */
