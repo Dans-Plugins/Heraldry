@@ -12,7 +12,7 @@ This plugin was proposed from a Kingdom: First Era player request on 2026-09-04 
 
 ## Project Status
 
-**Pre-implementation.** The repository holds a buildable, empty plugin skeleton; none of the features below are implemented yet. The scope of the first release is defined in [MVP.md](MVP.md).
+**In development; not yet usable on a server.** The building blocks exist as library code: rasterising a PNG to the map palette, storing each owner's arms, and drawing rasterised arms onto a map. None of it is wired into the plugin yet, and there are no commands. The scope of the first release is defined in [MVP.md](MVP.md).
 
 ## Planned Features
 
