@@ -45,6 +45,32 @@ class ArmsOwnerTest {
     }
 
     @Test
+    void parseReadsBackWhatToStringWrites() {
+        ArmsOwner player = ArmsOwner.player(PLAYER_ID);
+        ArmsOwner faction = ArmsOwner.faction("house_of_york-1");
+
+        assertEquals(player, ArmsOwner.parse(player.toString()));
+        assertEquals(faction, ArmsOwner.parse(faction.toString()));
+    }
+
+    @Test
+    void parseRejectsTextThatIsNotAnOwner() {
+        assertThrows(IllegalArgumentException.class, () -> ArmsOwner.parse(null));
+        assertThrows(IllegalArgumentException.class, () -> ArmsOwner.parse("house_of_york"));
+        assertThrows(IllegalArgumentException.class, () -> ArmsOwner.parse("KINGDOM:house_of_york"));
+        assertThrows(IllegalArgumentException.class, () -> ArmsOwner.parse("faction:house_of_york"));
+        assertThrows(IllegalArgumentException.class, () -> ArmsOwner.parse("FACTION:../player/x"));
+        assertThrows(IllegalArgumentException.class, () -> ArmsOwner.parse("PLAYER:house_of_york"));
+    }
+
+    @Test
+    void parseRejectsAbbreviatedPlayerUuids() {
+        assertThrows(IllegalArgumentException.class, () -> ArmsOwner.parse("PLAYER:1-1-1-1-1"));
+        assertThrows(IllegalArgumentException.class,
+                () -> ArmsOwner.parse("PLAYER:0F8FAD5B-D9CB-469F-A165-70867728950E"));
+    }
+
+    @Test
     void idsThatCouldEscapeTheStoreAreRejected() {
         assertThrows(IllegalArgumentException.class, () -> ArmsOwner.faction("../player/x"));
         assertThrows(IllegalArgumentException.class, () -> ArmsOwner.faction("a/b"));

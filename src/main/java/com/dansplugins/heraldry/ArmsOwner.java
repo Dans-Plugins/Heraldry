@@ -47,6 +47,40 @@ public final class ArmsOwner {
         return new ArmsOwner(Type.FACTION, factionId);
     }
 
+    /**
+     * Reads an owner back from its {@link #toString()} form, for example {@code FACTION:house_of_york}.
+     *
+     * @throws IllegalArgumentException if the text is not a valid owner
+     */
+    public static ArmsOwner parse(String text) {
+        if (text == null) {
+            throw new IllegalArgumentException("Owner text must not be null");
+        }
+        int colon = text.indexOf(':');
+        if (colon < 0) {
+            throw new IllegalArgumentException("Owner must be written as TYPE:id, but was: " + text);
+        }
+        String typeName = text.substring(0, colon);
+        String id = text.substring(colon + 1);
+        if (Type.PLAYER.name().equals(typeName)) {
+            ArmsOwner owner;
+            try {
+                owner = player(UUID.fromString(id));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Player owner id must be a UUID, but was: " + id, e);
+            }
+            // UUID.fromString accepts abbreviated forms; only the canonical one names the stored file.
+            if (!owner.getId().equals(id)) {
+                throw new IllegalArgumentException("Player owner id must be a canonical UUID, but was: " + id);
+            }
+            return owner;
+        }
+        if (Type.FACTION.name().equals(typeName)) {
+            return faction(id);
+        }
+        throw new IllegalArgumentException("Owner type must be PLAYER or FACTION, but was: " + typeName);
+    }
+
     public Type getType() {
         return type;
     }
