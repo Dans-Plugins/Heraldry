@@ -130,6 +130,18 @@ class ArmsMapIssuerTest {
     }
 
     @Test
+    void aFactoryThatCreatesNoMapIsReported() throws IOException {
+        ArmsStore store = store();
+        store.save(PLAYER, filled(Color.RED));
+        IssuedMaps maps = maps();
+
+        assertThrows(IllegalStateException.class,
+                () -> new ArmsMapIssuer(store, RASTERISER, maps, () -> null).issue(PLAYER));
+
+        assertEquals(Collections.emptyMap(), maps.all());
+    }
+
+    @Test
     void nullsAreRejected() throws IOException {
         ArmsStore store = store();
         IssuedMaps maps = maps();
