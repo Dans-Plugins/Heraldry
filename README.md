@@ -12,7 +12,7 @@ This plugin was proposed from a Kingdom: First Era player request on 2026-09-04 
 
 ## Project Status
 
-**In development; not yet usable on a server.** The building blocks exist as library code: rasterising a PNG to the map palette, storing each owner's arms, drawing rasterised arms onto a map, and remembering which owner each issued map belongs to. On enable the plugin loads the issued maps and re-binds each one to its owner's stored arms, but nothing can issue a map or set arms yet, because there are no commands. The scope of the first release is defined in [MVP.md](MVP.md).
+**In development; not yet usable on a server.** The building blocks exist as library code: rasterising a PNG to the map palette, storing each owner's arms, drawing rasterised arms onto a map, creating a new map that draws an owner's arms, and remembering which owner each issued map belongs to. On enable the plugin loads the issued maps and re-binds each one to its owner's stored arms, but nothing can issue a map or set arms yet, because there are no commands. The scope of the first release is defined in [MVP.md](MVP.md).
 
 ## Planned Features
 
