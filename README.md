@@ -43,7 +43,7 @@ The jar is written to `build/libs/Heraldry-<version>.jar`.
 
 ### Commands
 
-A vanilla client cannot upload a file, so an image becomes arms by being placed in `plugins/Heraldry/import` on the server, for example a PNG exported from Armoria. The folder is created when the plugin is enabled.
+A vanilla client cannot upload a file, so an image becomes arms by being placed in `plugins/Heraldry/import` on the server, for example a PNG exported from Armoria. The folder is created when the plugin is enabled. An image can be at most 2048 pixels wide and 2048 pixels tall.
 
 | Command | Permission | Default | What it does |
 |---|---|---|---|

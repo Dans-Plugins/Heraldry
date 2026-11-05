@@ -105,6 +105,39 @@ class ArmsImporterTest {
     }
 
     @Test
+    void imagesOverTheSizeLimitAreRejectedInEitherDimensionAndLeaveExistingArmsAlone() throws IOException {
+        Path imports = Files.createDirectories(dataFolder.resolve("import"));
+        writePng(imports.resolve("york.png"), Color.RED);
+        int tooBig = ArmsImporter.MAX_DIMENSION + 1;
+        writePng(imports.resolve("wide.png"), tooBig, 1);
+        writePng(imports.resolve("tall.png"), 1, tooBig);
+        ArmsStore store = new ArmsStore(dataFolder.resolve("arms"));
+        ArmsImporter importer = new ArmsImporter(imports, store);
+        importer.importArms(PLAYER, "york.png");
+
+        IllegalArgumentException wide = assertThrows(IllegalArgumentException.class,
+                () -> importer.importArms(PLAYER, "wide.png"));
+        IllegalArgumentException tall = assertThrows(IllegalArgumentException.class,
+                () -> importer.importArms(PLAYER, "tall.png"));
+
+        assertTrue(wide.getMessage().contains("wide.png is 2049x1 pixels"), wide.getMessage());
+        assertTrue(tall.getMessage().contains("tall.png is 1x2049 pixels"), tall.getMessage());
+        assertEquals(Color.RED.getRGB(), store.load(PLAYER).get().getRGB(3, 3));
+    }
+
+    @Test
+    void imagesAtTheSizeLimitAreImported() throws IOException {
+        Path imports = Files.createDirectories(dataFolder.resolve("import"));
+        writePng(imports.resolve("banner.png"), ArmsImporter.MAX_DIMENSION, 1);
+        ArmsStore store = new ArmsStore(dataFolder.resolve("arms"));
+
+        BufferedImage imported = new ArmsImporter(imports, store).importArms(PLAYER, "banner.png");
+
+        assertEquals(ArmsImporter.MAX_DIMENSION, imported.getWidth());
+        assertTrue(store.has(PLAYER));
+    }
+
+    @Test
     void listReturnsTheImportablePngsSorted() throws IOException {
         Path imports = Files.createDirectories(dataFolder.resolve("import"));
         writePng(imports.resolve("york.png"), Color.RED);
@@ -137,6 +170,10 @@ class ArmsImporterTest {
 
     private static void writePng(Path file, Color colour) throws IOException {
         assertTrue(ImageIO.write(filled(colour), "png", file.toFile()));
+    }
+
+    private static void writePng(Path file, int width, int height) throws IOException {
+        assertTrue(ImageIO.write(new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB), "png", file.toFile()));
     }
 
     private static BufferedImage filled(Color colour) {
