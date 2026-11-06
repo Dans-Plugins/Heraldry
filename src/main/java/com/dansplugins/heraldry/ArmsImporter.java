@@ -1,14 +1,16 @@
 package com.dansplugins.heraldry;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -30,6 +32,12 @@ public final class ArmsImporter {
     /** File names a player can type in a command: letters, digits, '.', '-' and '_', ending in .png. */
     private static final Pattern VALID_NAME = Pattern.compile("[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}\\.png");
 
+    /**
+     * The widest or tallest image accepted, in pixels. Arms are drawn at 128x128, and are decoded on
+     * the server thread each time they are imported, issued or re-bound, so this bounds that work.
+     */
+    static final int MAX_DIMENSION = 2048;
+
     private final Path directory;
     private final ArmsStore store;
 
@@ -47,8 +55,9 @@ public final class ArmsImporter {
      *
      * @return the imported image
      * @throws IllegalArgumentException if the name is not a plain {@code .png} file name, the file
-     *                                  does not exist, or it is not a readable image. The message
-     *                                  says which, and is suitable to show to the player.
+     *                                  does not exist, it is not a readable image, or it is wider
+     *                                  or taller than {@link #MAX_DIMENSION}. The message says
+     *                                  which, and is suitable to show to the player.
      * @throws IOException              if the file cannot be read or the arms cannot be stored
      */
     public BufferedImage importArms(ArmsOwner owner, String fileName) throws IOException {
@@ -59,13 +68,7 @@ public final class ArmsImporter {
         if (!Files.isRegularFile(file)) {
             throw new IllegalArgumentException("No file named " + fileName + " in the import folder.");
         }
-        BufferedImage arms;
-        try (InputStream in = Files.newInputStream(file)) {
-            arms = ImageIO.read(in);
-        }
-        if (arms == null) {
-            throw new IllegalArgumentException(fileName + " is not a readable PNG.");
-        }
+        BufferedImage arms = read(file, fileName);
         store.save(owner, arms);
         return arms;
     }
@@ -86,6 +89,29 @@ public final class ArmsImporter {
         }
         Collections.sort(names);
         return names;
+    }
+
+    /** Reads the image, checking its size from the header so a rejected image is never decoded. */
+    private static BufferedImage read(Path file, String fileName) throws IOException {
+        try (ImageInputStream in = ImageIO.createImageInputStream(file.toFile())) {
+            Iterator<ImageReader> readers = in == null ? Collections.emptyIterator() : ImageIO.getImageReaders(in);
+            if (!readers.hasNext()) {
+                throw new IllegalArgumentException(fileName + " is not a readable PNG.");
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(in, true, true);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+                    throw new IllegalArgumentException(fileName + " is " + width + "x" + height
+                            + " pixels; arms can be at most " + MAX_DIMENSION + "x" + MAX_DIMENSION + ".");
+                }
+                return reader.read(0);
+            } finally {
+                reader.dispose();
+            }
+        }
     }
 
     private Path resolve(String fileName) {

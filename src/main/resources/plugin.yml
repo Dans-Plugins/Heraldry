@@ -4,3 +4,17 @@ main: com.dansplugins.heraldry.Heraldry
 api-version: '1.16'
 authors: ["Daniel McCoy Stephenson"]
 description: Coats of arms for players and factions, rendered onto maps
+commands:
+  heraldry:
+    description: View, set and issue coats of arms
+    usage: /heraldry <view|set|issue>
+permissions:
+  heraldry.view:
+    description: See whether a player has arms
+    default: true
+  heraldry.set:
+    description: Set a player's arms from a PNG in the import folder
+    default: op
+  heraldry.issue:
+    description: Issue a map of a player's arms to them
+    default: op
