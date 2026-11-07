@@ -39,7 +39,8 @@ public final class Heraldry extends JavaPlugin {
             return;
         }
         MapRasteriser rasteriser = new MapRasteriser();
-        MapRebinder.Result result = new MapRebinder(armsStore, rasteriser, Bukkit::getMap).rebind(issuedMaps);
+        MapRebinder rebinder = new MapRebinder(armsStore, rasteriser, Bukkit::getMap);
+        MapRebinder.Result result = rebinder.rebind(issuedMaps);
         for (String problem : result.getProblems()) {
             getLogger().warning(problem);
         }
@@ -52,7 +53,7 @@ public final class Heraldry extends JavaPlugin {
             getLogger().warning("Could not create the import folder: " + e.getMessage());
         }
         HeraldryCommand command = new HeraldryCommand(new ArmsImporter(importFolder, armsStore), armsStore,
-                rasteriser, issuedMaps, new ServerEnvironment(), getLogger());
+                rasteriser, issuedMaps, rebinder, new ServerEnvironment(), getLogger());
         getCommand("heraldry").setExecutor(command);
         getCommand("heraldry").setTabCompleter(command);
     }
@@ -82,6 +83,13 @@ public final class Heraldry extends JavaPlugin {
                 names.add(player.getName());
             }
             return names;
+        }
+
+        @Override
+        public void showToPlayers(MapView view) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                player.sendMap(view);
+            }
         }
     }
 

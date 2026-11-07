@@ -17,9 +17,8 @@ import java.util.TreeMap;
  * Remembers which owner each issued map belongs to, so its renderer can be added back after a restart.
  *
  * <p>The server forgets map renderers when it stops, but keeps the map views themselves. Only the
- * owner is recorded against a map id, never the arms: the arms are looked up from the
- * {@link ArmsStore} when the map is drawn, so an owner who changes their arms changes every map
- * already issued.
+ * owner is recorded against a map id, never the arms: {@link MapRebinder} looks the arms up from
+ * the {@link ArmsStore}, so an owner who changes their arms changes every map already issued.
  *
  * <p>The file holds one {@code <map id> <owner>} line per map, sorted by map id, for example
  * {@code 42 FACTION:house_of_york}.

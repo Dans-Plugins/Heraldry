@@ -11,14 +11,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 /**
- * Adds an {@link ArmsMapRenderer} back to every issued map after a restart.
+ * Binds issued maps to their owner's current arms: every map after a restart, and one owner's maps
+ * when that owner's arms change.
  *
- * <p>The server keeps map views between restarts but forgets their renderers. For each map recorded
- * in {@link IssuedMaps}, the owner's arms are loaded from the {@link ArmsStore} and rasterised, and the
- * map's renderers are replaced with one that draws them. Arms are loaded and rasterised once per
- * owner, and that owner's maps share one renderer.
+ * <p>The server keeps map views between restarts but forgets their renderers, and a renderer keeps
+ * the pixels it was created with. For each map recorded in {@link IssuedMaps}, the owner's arms are
+ * loaded from the {@link ArmsStore} and rasterised, and the map's renderers are replaced with one
+ * that draws them. Arms are loaded and rasterised once per owner, and that owner's maps share one
+ * renderer.
  */
 public final class MapRebinder {
 
@@ -30,17 +33,22 @@ public final class MapRebinder {
 
     /** What a call to {@link #rebind} did. */
     public static final class Result {
-        private final int rebound;
+        private final List<MapView> maps;
         private final List<String> problems;
 
-        private Result(int rebound, List<String> problems) {
-            this.rebound = rebound;
+        private Result(List<MapView> maps, List<String> problems) {
+            this.maps = Collections.unmodifiableList(maps);
             this.problems = Collections.unmodifiableList(problems);
         }
 
         /** How many maps now draw their owner's arms. */
         public int getRebound() {
-            return rebound;
+            return maps.size();
+        }
+
+        /** The maps that now draw their owner's arms, in ascending map id order. */
+        public List<MapView> getMaps() {
+            return maps;
         }
 
         /** One message per map that could not be re-bound, in ascending map id order. */
@@ -70,11 +78,32 @@ public final class MapRebinder {
         if (maps == null) {
             throw new IllegalArgumentException("maps must not be null");
         }
+        return rebindEach(maps.all());
+    }
+
+    /**
+     * Re-binds only the maps in {@code maps} that belong to {@code owner}, so they draw the arms the
+     * owner has now. A map that cannot be re-bound is treated as in {@link #rebind(IssuedMaps)}.
+     */
+    public Result rebind(IssuedMaps maps, ArmsOwner owner) {
+        if (maps == null || owner == null) {
+            throw new IllegalArgumentException("maps and owner must not be null");
+        }
+        Map<Integer, ArmsOwner> ownersMaps = new TreeMap<>();
+        for (Map.Entry<Integer, ArmsOwner> entry : maps.all().entrySet()) {
+            if (owner.equals(entry.getValue())) {
+                ownersMaps.put(entry.getKey(), owner);
+            }
+        }
+        return rebindEach(ownersMaps);
+    }
+
+    private Result rebindEach(Map<Integer, ArmsOwner> owners) {
         Map<ArmsOwner, ArmsMapRenderer> renderers = new HashMap<>();
         Map<ArmsOwner, String> ownerProblems = new HashMap<>();
         List<String> problems = new ArrayList<>();
-        int rebound = 0;
-        for (Map.Entry<Integer, ArmsOwner> entry : maps.all().entrySet()) {
+        List<MapView> rebound = new ArrayList<>();
+        for (Map.Entry<Integer, ArmsOwner> entry : owners.entrySet()) {
             int mapId = entry.getKey();
             ArmsOwner owner = entry.getValue();
             MapView view = lookup.find(mapId);
@@ -94,7 +123,7 @@ public final class MapRebinder {
                 view.removeRenderer(existing);
             }
             view.addRenderer(renderer);
-            rebound++;
+            rebound.add(view);
         }
         return new Result(rebound, problems);
     }
