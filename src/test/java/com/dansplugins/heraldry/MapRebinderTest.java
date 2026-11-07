@@ -142,12 +142,67 @@ class MapRebinderTest {
     }
 
     @Test
+    void rebindingOneOwnerDrawsTheirCurrentArmsAndLeavesOtherOwnersAlone() throws IOException {
+        ArmsStore store = store();
+        store.save(PLAYER, filled(Color.RED));
+        store.save(FACTION, filled(Color.RED));
+        IssuedMaps maps = maps();
+        maps.record(1, PLAYER);
+        maps.record(2, FACTION);
+        maps.record(3, PLAYER);
+        Map<Integer, FakeView> views = views(1, 2, 3);
+        MapRebinder rebinder = new MapRebinder(store, RASTERISER, lookup(views));
+        rebinder.rebind(maps);
+        MapRenderer factionRenderer = views.get(2).renderers.get(0);
+        store.save(PLAYER, filled(Color.BLUE));
+
+        MapRebinder.Result result = rebinder.rebind(maps, PLAYER);
+
+        assertEquals(Arrays.asList(views.get(1).proxy, views.get(3).proxy), result.getMaps());
+        assertEquals(2, result.getRebound());
+        assertEquals(Collections.emptyList(), result.getProblems());
+        assertEquals(22, views.get(1).drawnCentrePixel());
+        assertEquals(22, views.get(3).drawnCentrePixel());
+        assertSame(factionRenderer, views.get(2).renderers.get(0));
+    }
+
+    @Test
+    void rebindingOneOwnerReportsTheirMapsThatNoLongerExist() throws IOException {
+        ArmsStore store = store();
+        store.save(PLAYER, filled(Color.RED));
+        IssuedMaps maps = maps();
+        maps.record(1, PLAYER);
+        maps.record(2, FACTION);
+
+        MapRebinder.Result result = new MapRebinder(store, RASTERISER, id -> null).rebind(maps, PLAYER);
+
+        assertEquals(Collections.emptyList(), result.getMaps());
+        assertEquals(Collections.singletonList("Map 1 of " + PLAYER + " no longer exists on the server."),
+                result.getProblems());
+    }
+
+    @Test
+    void anOwnerWithNoIssuedMapsHasNothingToRebind() throws IOException {
+        IssuedMaps maps = maps();
+        maps.record(1, FACTION);
+
+        MapRebinder.Result result = new MapRebinder(store(), RASTERISER, lookup(views(1))).rebind(maps, PLAYER);
+
+        assertEquals(0, result.getRebound());
+        assertEquals(Collections.emptyList(), result.getProblems());
+    }
+
+    @Test
     void nullsAreRejected() throws IOException {
         ArmsStore store = store();
         assertThrows(IllegalArgumentException.class, () -> new MapRebinder(null, RASTERISER, id -> null));
         assertThrows(IllegalArgumentException.class, () -> new MapRebinder(store, null, id -> null));
         assertThrows(IllegalArgumentException.class, () -> new MapRebinder(store, RASTERISER, null));
-        assertThrows(IllegalArgumentException.class, () -> new MapRebinder(store, RASTERISER, id -> null).rebind(null));
+        MapRebinder rebinder = new MapRebinder(store, RASTERISER, id -> null);
+        IssuedMaps maps = maps();
+        assertThrows(IllegalArgumentException.class, () -> rebinder.rebind(null));
+        assertThrows(IllegalArgumentException.class, () -> rebinder.rebind(null, PLAYER));
+        assertThrows(IllegalArgumentException.class, () -> rebinder.rebind(maps, null));
     }
 
     private ArmsStore store() {

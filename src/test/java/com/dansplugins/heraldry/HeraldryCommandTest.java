@@ -1,6 +1,7 @@
 package com.dansplugins.heraldry;
 
 import org.bukkit.command.CommandSender;
+import org.bukkit.map.MapCanvas;
 import org.bukkit.map.MapRenderer;
 import org.bukkit.map.MapView;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,10 @@ class HeraldryCommandTest {
 
     private static final String[] ALL_PERMISSIONS = {"heraldry.view", "heraldry.set", "heraldry.issue"};
 
+    /** Red and blue arms rasterise to distinct, recognisable palette indices. */
+    private static final byte RED_PIXEL = 11;
+    private static final byte BLUE_PIXEL = 22;
+
     @TempDir
     Path dataFolder;
 
@@ -80,8 +85,10 @@ class HeraldryCommandTest {
         logger.setLevel(Level.ALL);
 
         environment = new FakeEnvironment();
-        command = new HeraldryCommand(new ArmsImporter(imports, store), store, new MapRasteriser(colour -> (byte) 11),
-                maps, environment, logger);
+        MapRasteriser rasteriser = new MapRasteriser(colour -> colour.getRed() > 0 ? RED_PIXEL : BLUE_PIXEL);
+        MapRebinder rebinder = new MapRebinder(store, rasteriser, environment::findMap);
+        command = new HeraldryCommand(new ArmsImporter(imports, store), store, rasteriser, maps, rebinder,
+                environment, logger);
         steve = new FakePlayer("Steve", "0f8fad5b-d9cb-469f-a165-70867728950e", ALL_PERMISSIONS);
         alex = new FakePlayer("Alex", "7c9e6679-7425-40de-944b-e07fc1f90ae7");
     }
@@ -209,6 +216,64 @@ class HeraldryCommandTest {
 
         run(steve.proxy, "set", "york.png", "Alex", "extra");
         assertTrue(steve.last().contains("Usage"), steve.last());
+    }
+
+    @Test
+    void setRedrawsTheMapsAlreadyIssuedToThatPlayerAndShowsThemToPlayers() {
+        run(steve.proxy, "set", "york.png");
+        run(steve.proxy, "issue");
+        run(steve.proxy, "issue");
+        FakeView first = environment.given.get(0).view;
+        FakeView second = environment.given.get(1).view;
+        assertEquals(RED_PIXEL, first.drawnCentrePixel());
+
+        run(steve.proxy, "set", "lancaster.png");
+
+        assertEquals(BLUE_PIXEL, first.drawnCentrePixel());
+        assertEquals(BLUE_PIXEL, second.drawnCentrePixel());
+        assertEquals(Arrays.asList(first.proxy, second.proxy), environment.shown);
+        assertEquals("Steve's arms are now lancaster.png.", steve.last());
+    }
+
+    @Test
+    void setLeavesTheMapsOfOtherPlayersAlone() {
+        environment.online(alex);
+        store(alex, Color.RED);
+        run(steve.proxy, "issue", "Alex");
+        FakeView alexsMap = environment.given.get(0).view;
+        MapRenderer renderer = alexsMap.renderers.get(0);
+
+        run(steve.proxy, "set", "lancaster.png");
+
+        assertSame(renderer, alexsMap.renderers.get(0));
+        assertTrue(environment.shown.isEmpty());
+    }
+
+    @Test
+    void aFailedSetLeavesIssuedMapsAlone() {
+        store(steve, Color.RED);
+        run(steve.proxy, "issue");
+        FakeView map = environment.given.get(0).view;
+        MapRenderer renderer = map.renderers.get(0);
+
+        run(steve.proxy, "set", "absent.png");
+
+        assertSame(renderer, map.renderers.get(0));
+        assertTrue(environment.shown.isEmpty());
+    }
+
+    @Test
+    void setStillSucceedsWhenAnIssuedMapCannotBeRedrawnAndLogsIt() {
+        store(steve, Color.RED);
+        run(steve.proxy, "issue");
+        environment.views.clear();
+
+        run(steve.proxy, "set", "lancaster.png");
+
+        assertEquals("Steve's arms are now lancaster.png.", steve.last());
+        assertEquals(1, logged.size());
+        assertTrue(logged.get(0).contains("no longer exists"), logged.get(0));
+        assertTrue(environment.shown.isEmpty());
     }
 
     @Test
@@ -477,6 +542,8 @@ class HeraldryCommandTest {
                             case "addRenderer":
                                 renderers.add((MapRenderer) args[0]);
                                 return null;
+                            case "removeRenderer":
+                                return renderers.remove((MapRenderer) args[0]);
                             case "hashCode":
                                 return System.identityHashCode(self);
                             case "equals":
@@ -485,6 +552,22 @@ class HeraldryCommandTest {
                                 throw new UnsupportedOperationException(method.getName());
                         }
                     });
+        }
+
+        /** Renders with the only renderer and returns the palette index it drew at the map's centre. */
+        byte drawnCentrePixel() {
+            assertEquals(1, renderers.size());
+            int centre = MapRasteriser.MAP_SIZE / 2;
+            byte[] drawn = new byte[1];
+            MapCanvas canvas = (MapCanvas) Proxy.newProxyInstance(MapCanvas.class.getClassLoader(),
+                    new Class<?>[]{MapCanvas.class}, (canvasProxy, method, args) -> {
+                        if ((Integer) args[0] == centre && (Integer) args[1] == centre) {
+                            drawn[0] = (Byte) args[2];
+                        }
+                        return null;
+                    });
+            renderers.get(0).render(proxy, canvas, null);
+            return drawn[0];
         }
     }
 
@@ -506,6 +589,16 @@ class HeraldryCommandTest {
         final Map<MapView, FakeView> views = new HashMap<>();
         final List<FakePlayer> mapsCreatedFor = new ArrayList<>();
         final List<Given> given = new ArrayList<>();
+        final List<MapView> shown = new ArrayList<>();
+
+        MapView findMap(int mapId) {
+            for (FakeView view : views.values()) {
+                if (view.id == mapId) {
+                    return view.proxy;
+                }
+            }
+            return null;
+        }
 
         void online(FakePlayer player) {
             players.put(player.name, player);
@@ -524,6 +617,11 @@ class HeraldryCommandTest {
         @Override
         public List<String> playerNames() {
             return new ArrayList<>(players.keySet());
+        }
+
+        @Override
+        public void showToPlayers(MapView view) {
+            shown.add(view);
         }
     }
 }

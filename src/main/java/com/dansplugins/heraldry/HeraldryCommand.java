@@ -44,6 +44,9 @@ public final class HeraldryCommand implements CommandExecutor, TabCompleter {
 
         /** Returns the names of the online players. */
         List<String> playerNames();
+
+        /** Sends the map's current pixels to every online player, as a client keeps those it last received. */
+        void showToPlayers(MapView view);
     }
 
     /** The parts of an online player the command uses. */
@@ -63,12 +66,13 @@ public final class HeraldryCommand implements CommandExecutor, TabCompleter {
     private final ArmsStore store;
     private final MapRasteriser rasteriser;
     private final IssuedMaps issuedMaps;
+    private final MapRebinder rebinder;
     private final Environment environment;
     private final Logger logger;
 
     public HeraldryCommand(ArmsImporter importer, ArmsStore store, MapRasteriser rasteriser, IssuedMaps issuedMaps,
-                           Environment environment, Logger logger) {
-        if (importer == null || store == null || rasteriser == null || issuedMaps == null
+                           MapRebinder rebinder, Environment environment, Logger logger) {
+        if (importer == null || store == null || rasteriser == null || issuedMaps == null || rebinder == null
                 || environment == null || logger == null) {
             throw new IllegalArgumentException("Every HeraldryCommand argument is required");
         }
@@ -76,6 +80,7 @@ public final class HeraldryCommand implements CommandExecutor, TabCompleter {
         this.store = store;
         this.rasteriser = rasteriser;
         this.issuedMaps = issuedMaps;
+        this.rebinder = rebinder;
         this.environment = environment;
         this.logger = logger;
     }
@@ -150,8 +155,9 @@ public final class HeraldryCommand implements CommandExecutor, TabCompleter {
         if (target == null) {
             return;
         }
+        ArmsOwner owner = ArmsOwner.player(target.getUniqueId());
         try {
-            importer.importArms(ArmsOwner.player(target.getUniqueId()), args[1]);
+            importer.importArms(owner, args[1]);
         } catch (IllegalArgumentException e) {
             sender.sendMessage(e.getMessage());
             return;
@@ -160,7 +166,19 @@ public final class HeraldryCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("Could not set those arms; see the server log.");
             return;
         }
+        redrawIssuedMaps(owner);
         sender.sendMessage(target.getName() + "'s arms are now " + args[1] + ".");
+    }
+
+    /** Makes the maps already issued to the owner draw their new arms, without waiting for a restart. */
+    private void redrawIssuedMaps(ArmsOwner owner) {
+        MapRebinder.Result result = rebinder.rebind(issuedMaps, owner);
+        for (String problem : result.getProblems()) {
+            logger.warning(problem);
+        }
+        for (MapView view : result.getMaps()) {
+            environment.showToPlayers(view);
+        }
     }
 
     private void issue(CommandSender sender, String[] args) {

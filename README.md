@@ -12,7 +12,7 @@ This plugin was proposed from a Kingdom: First Era player request on 2026-09-04 
 
 ## Project Status
 
-**In development; not yet released.** A player's arms can be set from a PNG in the plugin's `import` folder and issued as a named, lore-tagged filled map with `/heraldry` (see [Commands](#commands)). The arms are stored against the player, and each issued map is re-bound to them when the server restarts. Faction-owned arms are not available yet, and only PNG images can be imported. The scope of the first release is defined in [MVP.md](MVP.md).
+**In development; not yet released.** A player's arms can be set from a PNG in the plugin's `import` folder and issued as a named, lore-tagged filled map with `/heraldry` (see [Commands](#commands)). The arms are stored against the player, so changing them redraws every map already issued, and each issued map is re-bound to them when the server restarts. Faction-owned arms are not available yet, and only PNG images can be imported. The scope of the first release is defined in [MVP.md](MVP.md).
 
 ## Planned Features
 
@@ -48,7 +48,7 @@ A vanilla client cannot upload a file, so an image becomes arms by being placed 
 | Command | Permission | Default | What it does |
 |---|---|---|---|
 | `/heraldry view [player]` | `heraldry.view` | everyone | Says whether a player has arms |
-| `/heraldry set <file> [player]` | `heraldry.set` | operators | Sets a player's arms from a PNG in the import folder, replacing any they had |
+| `/heraldry set <file> [player]` | `heraldry.set` | operators | Sets a player's arms from a PNG in the import folder, replacing any they had and redrawing the maps already issued to them |
 | `/heraldry issue [player]` | `heraldry.issue` | operators | Gives a player a map of their own arms, dropped at their feet if their inventory is full |
 
 Each command acts on the sender unless a player is named. A named player must be online, and the console must always name one.
