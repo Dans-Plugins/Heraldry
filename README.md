@@ -45,7 +45,7 @@ The jar is written to `build/libs/Heraldry-<version>.jar`.
 
 A vanilla client cannot upload a file, so an image becomes arms by being placed in `plugins/Heraldry/import` on the server, for example a PNG exported from Armoria. The folder is created when the plugin is enabled. An image can be at most 2048 pixels wide and 2048 pixels tall.
 
-The file name must end in `.png`, in lower case (`arms.PNG` is not accepted), and otherwise use only letters, digits, `.`, `-` and `_`, with at most 64 characters before `.png` and no folder in the name. Files with any other name are left out of tab completion for `/heraldry set`. Setting arms stores a copy of the image, so the file can be removed from the import folder afterwards.
+The file name must end in `.png`, in lower case (`arms.PNG` is not accepted), and otherwise use only letters, digits, `.`, `-` and `_`, starting with a letter, digit or `_`, with at most 64 characters before `.png` and no folder in the name. Files with any other name are left out of tab completion for `/heraldry set`. Setting arms stores a copy of the image, so the file can be removed from the import folder afterwards.
 
 | Command | Permission | Default | What it does |
 |---|---|---|---|
@@ -54,6 +54,14 @@ The file name must end in `.png`, in lower case (`arms.PNG` is not accepted), an
 | `/heraldry issue [player]` | `heraldry.issue` | operators | Gives a player a map of their own arms, dropped at their feet if their inventory is full |
 
 Each command acts on the sender unless a player is named. A named player must be online, and the console must always name one.
+
+### Issued maps
+
+An issued map is named `Arms of <player>`, and its lore reads `Arms of a player` followed by `Issued by Heraldry`. The name and lore are only a label: which player a map belongs to is recorded against the map's id, so renaming the map in an anvil does not change whose arms it shows.
+
+The arms are scaled to fit the 128×128 map with their proportions kept, centred, and padded with transparent pixels. Each pixel takes the nearest map colour, with no dithering, and pixels that are mostly transparent let the item frame show through.
+
+When the server starts, and when `/heraldry set` changes a player's arms, a map that no longer exists, or whose owner has no readable arms, is left as it is and a warning naming it is written to the server log.
 
 ### Data files
 
@@ -65,7 +73,7 @@ Everything Heraldry keeps is in `plugins/Heraldry`:
 | `arms/player/<uuid>.png` | Each player's arms, as the image that was imported |
 | `issued-maps.txt` | One `<map id> <owner>` line per issued map, so each map is re-bound to its owner's arms on restart |
 
-If `issued-maps.txt` cannot be read, Heraldry logs why and disables itself instead of overwriting it.
+If `issued-maps.txt` cannot be read, or holds a line that is not a valid `<map id> <owner>` entry (or repeats a map id), Heraldry logs why and disables itself instead of overwriting it.
 
 ### Documentation
 
