@@ -70,7 +70,7 @@ Everything Heraldry keeps is in `plugins/Heraldry`:
 | Path | What it holds |
 |---|---|
 | `import/` | Images waiting to be set as arms with `/heraldry set` |
-| `arms/player/<uuid>.png` | Each player's arms, as the image that was imported |
+| `arms/player/<uuid>.png` | Each player's arms, as the imported image saved again as a PNG, at its original size rather than as map pixels |
 | `issued-maps.txt` | One `<map id> <owner>` line per issued map, so each map is re-bound to its owner's arms on restart |
 
 If `issued-maps.txt` cannot be read, or holds a line that is not a valid `<map id> <owner>` entry (or repeats a map id), Heraldry logs why and disables itself instead of overwriting it.
