@@ -56,6 +56,40 @@ class ArmsStoreTest {
     }
 
     @Test
+    void savedArmsAreReportedByHas() throws IOException {
+        ArmsStore store = new ArmsStore(root);
+        store.save(PLAYER, halved(Color.RED, Color.RED));
+
+        assertTrue(store.has(PLAYER));
+        assertFalse(store.has(FACTION));
+    }
+
+    @Test
+    void transparencySurvivesSaveAndLoad() throws IOException {
+        ArmsStore store = new ArmsStore(root);
+        store.save(PLAYER, halved(Color.RED, new Color(0, 0, 255, 40)));
+
+        BufferedImage loaded = store.load(PLAYER).orElseThrow();
+
+        assertEquals(255, loaded.getRGB(2, 5) >>> 24);
+        assertEquals(40, loaded.getRGB(17, 5) >>> 24);
+    }
+
+    @Test
+    void failedSaveLeavesThePreviousArmsIntact() throws IOException {
+        ArmsStore store = new ArmsStore(root);
+        store.save(PLAYER, halved(Color.RED, Color.RED));
+        // A non-empty directory where the temporary file would go makes the next write fail.
+        Path file = store.fileFor(PLAYER);
+        Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
+        Files.createDirectories(temporary.resolve("blocker"));
+
+        assertThrows(IOException.class, () -> store.save(PLAYER, halved(Color.BLUE, Color.BLUE)));
+
+        assertEquals(Color.RED.getRGB(), store.load(PLAYER).orElseThrow().getRGB(2, 5));
+    }
+
+    @Test
     void playerAndFactionWithTheSameIdKeepSeparateArms() throws IOException {
         ArmsStore store = new ArmsStore(root);
         store.save(PLAYER, halved(Color.RED, Color.RED));
