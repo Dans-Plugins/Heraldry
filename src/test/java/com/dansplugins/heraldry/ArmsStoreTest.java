@@ -79,7 +79,8 @@ class ArmsStoreTest {
     void failedSaveLeavesThePreviousArmsIntact() throws IOException {
         ArmsStore store = new ArmsStore(root);
         store.save(PLAYER, halved(Color.RED, Color.RED));
-        // A non-empty directory where the temporary file would go makes the next write fail.
+        // A directory where the temporary file would go makes the next write fail. It must be non-empty,
+        // because ImageIO.write deletes its target first, which would remove an empty one.
         Path file = store.fileFor(PLAYER);
         Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
         Files.createDirectories(temporary.resolve("blocker"));
