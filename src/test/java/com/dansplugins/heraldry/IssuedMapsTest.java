@@ -108,6 +108,25 @@ class IssuedMapsTest {
     }
 
     @Test
+    void whitespaceAroundAnEntryIsIgnored() throws IOException {
+        Path file = root.resolve("maps.txt");
+        Files.write(file, Arrays.asList("  4 FACTION:house_of_york\t"), StandardCharsets.UTF_8);
+
+        assertEquals(Optional.of(FACTION), IssuedMaps.load(file).ownerOf(4));
+    }
+
+    @Test
+    void theMapIdAndOwnerMustBeSeparatedByExactlyOneSpace() throws IOException {
+        assertLoadFails("line 1", "4  FACTION:house_of_york");
+        assertLoadFails("line 1", "4\tFACTION:house_of_york");
+    }
+
+    @Test
+    void reportedLineNumbersCountBlankLines() throws IOException {
+        assertLoadFails("line 3", "4 FACTION:house_of_york", "", "five FACTION:house_of_york");
+    }
+
+    @Test
     void repeatedMapIdsAreReported() throws IOException {
         assertLoadFails("repeats map id 4", "4 FACTION:house_of_york", "4 FACTION:house_of_lancaster");
     }
@@ -123,6 +142,34 @@ class IssuedMapsTest {
         assertThrows(IOException.class, () -> maps.record(7, FACTION));
         assertThrows(IOException.class, () -> maps.record(8, FACTION));
         assertThrows(IOException.class, () -> maps.forget(7));
+
+        assertEquals(Optional.of(PLAYER), maps.ownerOf(7));
+        assertEquals(Optional.empty(), maps.ownerOf(8));
+    }
+
+    @Test
+    void failedWriteLeavesThePreviousFileOnDisk() throws IOException {
+        Path file = root.resolve("maps.txt");
+        IssuedMaps maps = IssuedMaps.load(file);
+        maps.record(7, PLAYER);
+        List<String> before = Files.readAllLines(file, StandardCharsets.UTF_8);
+        Files.createDirectory(root.resolve("maps.txt.tmp"));
+
+        assertThrows(IOException.class, () -> maps.record(8, FACTION));
+        assertThrows(IOException.class, () -> maps.forget(7));
+
+        assertEquals(before, Files.readAllLines(file, StandardCharsets.UTF_8));
+        assertEquals(Optional.of(PLAYER), IssuedMaps.load(file).ownerOf(7));
+    }
+
+    @Test
+    void allCannotBeUsedToChangeTheRecord() throws IOException {
+        Path file = root.resolve("maps.txt");
+        IssuedMaps maps = IssuedMaps.load(file);
+        maps.record(7, PLAYER);
+
+        assertThrows(UnsupportedOperationException.class, () -> maps.all().put(8, FACTION));
+        assertThrows(UnsupportedOperationException.class, () -> maps.all().remove(7));
 
         assertEquals(Optional.of(PLAYER), maps.ownerOf(7));
         assertEquals(Optional.empty(), maps.ownerOf(8));
