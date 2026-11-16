@@ -158,6 +158,100 @@ class ArmsImporterTest {
     }
 
     @Test
+    void aNameOfSixtyFourCharactersBeforeTheExtensionIsTheLongestAccepted() throws IOException {
+        Path imports = Files.createDirectories(dataFolder.resolve("import"));
+        String longest = "a".repeat(64) + ".png";
+        String tooLong = "a".repeat(65) + ".png";
+        writePng(imports.resolve(longest), Color.RED);
+        writePng(imports.resolve(tooLong), Color.BLUE);
+        ArmsStore store = new ArmsStore(dataFolder.resolve("arms"));
+        ArmsImporter importer = new ArmsImporter(imports, store);
+
+        importer.importArms(PLAYER, longest);
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> importer.importArms(PLAYER, tooLong));
+
+        assertTrue(e.getMessage().contains("plain .png name"), e.getMessage());
+        assertTrue(e.getMessage().endsWith(tooLong), e.getMessage());
+        assertEquals(Color.RED.getRGB(), store.load(PLAYER).orElseThrow().getRGB(3, 3));
+    }
+
+    @Test
+    void theExtensionMustBeLowerCasePngButSvgIsRecognisedInAnyCase() throws IOException {
+        Path imports = Files.createDirectories(dataFolder.resolve("import"));
+        writePng(imports.resolve("arms.PNG"), Color.RED);
+        ArmsStore store = new ArmsStore(dataFolder.resolve("arms"));
+        ArmsImporter importer = new ArmsImporter(imports, store);
+
+        IllegalArgumentException upperPng = assertThrows(IllegalArgumentException.class,
+                () -> importer.importArms(PLAYER, "arms.PNG"));
+        IllegalArgumentException upperSvg = assertThrows(IllegalArgumentException.class,
+                () -> importer.importArms(PLAYER, "arms.SVG"));
+
+        assertTrue(upperPng.getMessage().contains("plain .png name"), upperPng.getMessage());
+        assertTrue(upperSvg.getMessage().startsWith("SVG arms are not supported"), upperSvg.getMessage());
+        assertFalse(store.has(PLAYER));
+    }
+
+    @Test
+    void namesMayContainDotsHyphensAndUnderscoresButMayOnlyStartWithALetterDigitOrUnderscore()
+            throws IOException {
+        Path imports = Files.createDirectories(dataFolder.resolve("import"));
+        for (String name : Arrays.asList("_york.png", "9th-legion.png", "house_of-york.v2.png",
+                "-york.png", ".york.png", "house of york.png", "york+.png")) {
+            writePng(imports.resolve(name), Color.RED);
+        }
+        ArmsImporter importer = new ArmsImporter(imports, new ArmsStore(dataFolder.resolve("arms")));
+
+        for (String accepted : Arrays.asList("_york.png", "9th-legion.png", "house_of-york.v2.png")) {
+            assertEquals(Color.RED.getRGB(), importer.importArms(PLAYER, accepted).getRGB(3, 3), accepted);
+        }
+        for (String rejected : Arrays.asList("-york.png", ".york.png", "house of york.png", "york+.png")) {
+            IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                    () -> importer.importArms(PLAYER, rejected), rejected);
+            assertTrue(e.getMessage().contains("plain .png name"), rejected + ": " + e.getMessage());
+        }
+    }
+
+    @Test
+    void listLeavesOutFilesWhoseNamesCannotBeImported() throws IOException {
+        Path imports = Files.createDirectories(dataFolder.resolve("import"));
+        for (String name : Arrays.asList("york.png", "arms.PNG", "-york.png", ".york.png",
+                "house of york.png", "a".repeat(65) + ".png", "a".repeat(64) + ".png")) {
+            writePng(imports.resolve(name), Color.RED);
+        }
+        ArmsImporter importer = new ArmsImporter(imports, new ArmsStore(dataFolder.resolve("arms")));
+
+        assertEquals(Arrays.asList("a".repeat(64) + ".png", "york.png"), importer.list());
+    }
+
+    @Test
+    void aFolderWithAValidNameIsReportedAsMissing() throws IOException {
+        Path imports = Files.createDirectories(dataFolder.resolve("import"));
+        Files.createDirectories(imports.resolve("folder.png"));
+        ArmsStore store = new ArmsStore(dataFolder.resolve("arms"));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> new ArmsImporter(imports, store).importArms(PLAYER, "folder.png"));
+
+        assertEquals("No file named folder.png in the import folder.", e.getMessage());
+        assertFalse(store.has(PLAYER));
+    }
+
+    @Test
+    void theStoredArmsOutliveTheImportFile() throws IOException {
+        Path imports = Files.createDirectories(dataFolder.resolve("import"));
+        Path file = imports.resolve("york.png");
+        writePng(file, Color.RED);
+        ArmsStore store = new ArmsStore(dataFolder.resolve("arms"));
+
+        new ArmsImporter(imports, store).importArms(PLAYER, "york.png");
+        Files.delete(file);
+
+        assertEquals(Color.RED.getRGB(), store.load(PLAYER).orElseThrow().getRGB(3, 3));
+    }
+
+    @Test
     void nullArgumentsAreRejected() {
         ArmsStore store = new ArmsStore(dataFolder.resolve("arms"));
         ArmsImporter importer = new ArmsImporter(dataFolder, store);
