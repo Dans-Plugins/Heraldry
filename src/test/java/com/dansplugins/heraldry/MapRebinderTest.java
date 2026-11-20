@@ -193,6 +193,151 @@ class MapRebinderTest {
     }
 
     @Test
+    void everyExistingRendererIsRemoved() throws IOException {
+        ArmsStore store = store();
+        store.save(PLAYER, filled(Color.RED));
+        IssuedMaps maps = maps();
+        maps.record(1, PLAYER);
+        Map<Integer, FakeView> views = views(1);
+        views.get(1).renderers.add(blankRenderer());
+        views.get(1).renderers.add(blankRenderer());
+        views.get(1).renderers.add(blankRenderer());
+
+        new MapRebinder(store, RASTERISER, lookup(views)).rebind(maps);
+
+        assertEquals(1, views.get(1).renderers.size());
+        assertEquals(11, views.get(1).drawnCentrePixel());
+    }
+
+    @Test
+    void aMapWhoseOwnerHasNoArmsKeepsItsExistingRenderers() throws IOException {
+        IssuedMaps maps = maps();
+        maps.record(1, FACTION);
+        Map<Integer, FakeView> views = views(1);
+        MapRenderer terrain = blankRenderer();
+        views.get(1).renderers.add(terrain);
+
+        MapRebinder.Result result = new MapRebinder(store(), RASTERISER, lookup(views)).rebind(maps);
+
+        assertEquals(Collections.emptyList(), result.getMaps());
+        assertEquals(Collections.singletonList(terrain), views.get(1).renderers);
+    }
+
+    @Test
+    void rebindingOneOwnerWhoseArmsWereRemovedKeepsTheirMapsDrawingTheOldArms() throws IOException {
+        ArmsStore store = store();
+        store.save(PLAYER, filled(Color.RED));
+        IssuedMaps maps = maps();
+        maps.record(1, PLAYER);
+        Map<Integer, FakeView> views = views(1);
+        MapRebinder rebinder = new MapRebinder(store, RASTERISER, lookup(views));
+        rebinder.rebind(maps);
+        MapRenderer oldArms = views.get(1).renderers.get(0);
+        store.delete(PLAYER);
+
+        MapRebinder.Result result = rebinder.rebind(maps, PLAYER);
+
+        assertEquals(Collections.emptyList(), result.getMaps());
+        assertEquals(Collections.singletonList("Map 1 was not re-bound: " + PLAYER + " has no arms."),
+                result.getProblems());
+        assertSame(oldArms, views.get(1).renderers.get(0));
+        assertEquals(11, views.get(1).drawnCentrePixel());
+    }
+
+    @Test
+    void oneOwnerWithoutArmsDoesNotStopAnotherOwnersMaps() throws IOException {
+        ArmsStore store = store();
+        store.save(PLAYER, filled(Color.RED));
+        IssuedMaps maps = maps();
+        maps.record(1, FACTION);
+        maps.record(2, PLAYER);
+        maps.record(3, FACTION);
+        Map<Integer, FakeView> views = views(1, 2, 3);
+
+        MapRebinder.Result result = new MapRebinder(store, RASTERISER, lookup(views)).rebind(maps);
+
+        assertEquals(Collections.singletonList(views.get(2).proxy), result.getMaps());
+        assertEquals(Arrays.asList(
+                "Map 1 was not re-bound: " + FACTION + " has no arms.",
+                "Map 3 was not re-bound: " + FACTION + " has no arms."), result.getProblems());
+        assertEquals(11, views.get(2).drawnCentrePixel());
+    }
+
+    @Test
+    void mapsAndProblemsAreInAscendingMapIdOrder() throws IOException {
+        ArmsStore store = store();
+        store.save(PLAYER, filled(Color.RED));
+        IssuedMaps maps = maps();
+        maps.record(30, PLAYER);
+        maps.record(12, PLAYER);
+        maps.record(4, PLAYER);
+        maps.record(7, PLAYER);
+        Map<Integer, FakeView> views = views(30, 4);
+
+        MapRebinder.Result all = new MapRebinder(store, RASTERISER, lookup(views)).rebind(maps);
+        MapRebinder.Result owners = new MapRebinder(store, RASTERISER, lookup(views)).rebind(maps, PLAYER);
+
+        for (MapRebinder.Result result : Arrays.asList(all, owners)) {
+            assertEquals(Arrays.asList(views.get(4).proxy, views.get(30).proxy), result.getMaps());
+            assertEquals(Arrays.asList(
+                    "Map 7 of " + PLAYER + " no longer exists on the server.",
+                    "Map 12 of " + PLAYER + " no longer exists on the server."), result.getProblems());
+        }
+    }
+
+    @Test
+    void anOwnersArmsAreRasterisedOnceForAllTheirMaps() throws IOException {
+        ArmsStore store = store();
+        store.save(PLAYER, filled(Color.RED));
+        IssuedMaps maps = maps();
+        maps.record(1, PLAYER);
+        maps.record(2, PLAYER);
+        maps.record(3, PLAYER);
+        int[] matches = new int[1];
+        MapRasteriser counting = new MapRasteriser(colour -> {
+            matches[0]++;
+            return (byte) 11;
+        });
+
+        MapRebinder.Result result = new MapRebinder(store, counting, lookup(views(1, 2, 3))).rebind(maps);
+
+        assertEquals(3, result.getRebound());
+        assertEquals(MAP_SIZE * MAP_SIZE, matches[0]);
+    }
+
+    @Test
+    void aMapThatNoLongerExistsDoesNotLoadItsOwnersArms() throws IOException {
+        ArmsStore store = store();
+        Path file = store.fileFor(PLAYER);
+        Files.createDirectories(file.getParent());
+        Files.write(file, new byte[]{1, 2, 3});
+        IssuedMaps maps = maps();
+        maps.record(1, PLAYER);
+
+        MapRebinder.Result result = new MapRebinder(store, RASTERISER, id -> null).rebind(maps);
+
+        assertEquals(Collections.singletonList("Map 1 of " + PLAYER + " no longer exists on the server."),
+                result.getProblems());
+    }
+
+    @Test
+    void theResultsListsCannotBeChanged() throws IOException {
+        ArmsStore store = store();
+        store.save(PLAYER, filled(Color.RED));
+        IssuedMaps maps = maps();
+        maps.record(1, PLAYER);
+        maps.record(2, PLAYER);
+        Map<Integer, FakeView> views = views(1);
+
+        MapRebinder.Result result = new MapRebinder(store, RASTERISER, lookup(views)).rebind(maps);
+
+        assertThrows(UnsupportedOperationException.class, () -> result.getMaps().clear());
+        assertThrows(UnsupportedOperationException.class, () -> result.getProblems().clear());
+        assertEquals(1, result.getRebound());
+        assertEquals(1, result.getProblems().size());
+    }
+
+    @Test
     void nullsAreRejected() throws IOException {
         ArmsStore store = store();
         assertThrows(IllegalArgumentException.class, () -> new MapRebinder(null, RASTERISER, id -> null));
@@ -221,6 +366,14 @@ class MapRebinderTest {
             }
         }
         return image;
+    }
+
+    private static MapRenderer blankRenderer() {
+        return new MapRenderer() {
+            @Override
+            public void render(MapView view, MapCanvas canvas, Player player) {
+            }
+        };
     }
 
     private static Map<Integer, FakeView> views(int... ids) {
